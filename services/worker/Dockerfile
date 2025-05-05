@@ -1,22 +1,17 @@
-# services/api/Dockerfile  (worker такой же)
-FROM mambaorg/micromamba:1.5.3
+FROM python:3.11-slim
 
-# 1)  Python и бинарные зависимости
-COPY environment.yml /tmp/
-RUN micromamba install -y -n base -f /tmp/environment.yml && \
-    micromamba clean --all --yes
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libsndfile1-dev build-essential git && \
+    rm -rf /var/lib/apt/lists/*
 
-# 2)  Код приложения
+ENV PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu
+
+COPY services/worker/requirements.txt /tmp/requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r /tmp/requirements.txt
+
 WORKDIR /app
-COPY . /app
+COPY services/worker/ .
 
-# 3)  Скачиваем модель во время build
-RUN python - <<'PY'
-import torch, os, requests, zipfile, io
-os.makedirs('/models', exist_ok=True)
-torch.hub.load('speechbrain/speechbrain', 'spkrec-ecapa-voxceleb',
-               savedir='/models')
-PY
-
-EXPOSE 8000
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+ENV PYTHONUNBUFFERED=1
+CMD ["celery", "-A", "core.celery_app:celery_app", "worker", "--loglevel=info"]
