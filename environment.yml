@@ -1,0 +1,30 @@
+name: voiceid
+channels:
+  - conda-forge
+dependencies:
+  # ML / DSP
+  - python=3.11
+  - pytorch=2.2
+  - torchaudio
+  - speechbrain
+  - librosa
+  - numpy
+  - scipy
+  - rnnoise-pytorch # C‑библиотека + Python обёртка
+  - pyannote.metrics
+  # API & background
+  - fastapi
+  - uvicorn
+  - celery
+  - redis-py
+  # Database
+  - psycopg
+  - pgvector
+  # Misc
+  - pydub
+  - soundfile
+  - requests
+  - tqdm
+  - pip
+  - pip:
+      - python-dotenv # если нужны .env файлы

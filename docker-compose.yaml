@@ -1,0 +1,38 @@
+version: "0.0.1"
+
+services:
+  api:
+    build: ./services/api
+    ports: ["8000:8000"]
+    depends_on: [db, mq]
+    environment:
+      - DB_URL=postgresql://postgres:postgres@db:5432/voiceid
+      - RABBIT_URL=amqp://guest:guest@mq:5672/
+    volumes:
+      - model_cache:/models # сюда ляжет ECAPA
+
+  worker:
+    build: ./services/worker
+    depends_on: [db, mq]
+    environment:
+      - DB_URL=postgresql://postgres:postgres@db:5432/voiceid
+      - RABBIT_URL=amqp://guest:guest@mq:5672/
+    volumes:
+      - model_cache:/models
+
+  db:
+    image: ankane/pgvector:latest # Postgres 16 + pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: voiceid
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  mq:
+    image: rabbitmq:3-management
+    ports: ["15672:15672"] # Web‑UI
+
+volumes:
+  pgdata:
+  model_cache:
