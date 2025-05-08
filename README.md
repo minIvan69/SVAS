@@ -29,3 +29,9 @@ make restart-one name=flask_app
 # Рестарт с пересборкой
 
 make rebuild-one name=flask_app
+
+source .venv/bin/activate
+
+ython services/worker/train_thresholds.py \
+ --dataset-root ~/Datasets/voxceleb1/wav \
+ --sample-fraction 1.0

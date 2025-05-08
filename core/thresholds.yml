@@ -1,0 +1,11 @@
+model: ecapa-voxceleb
+train_date: 2025-05-XX
+cosine_thr: 0.2494525462388997
+plda_thr: -0.053116699217489426
+q_coeff:
+  alpha: 13.534008085113573
+  beta: 3.000852051834448
+  gamma: -4.086637486664439
+tiers:
+  confidential: 0.6384025151869968
+  basic: 0.44073772791577664
