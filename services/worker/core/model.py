@@ -8,12 +8,30 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+from datetime import datetime
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from pgvector.sqlalchemy import Vector
+
 import torch
 from speechbrain.pretrained import SpeakerRecognition
 
 from .config import settings
 
 __all__ = ["get_speaker_model", "extract_embedding"]
+
+class Base(DeclarativeBase):
+    pass
+
+
+class Embedding(Base):
+    __tablename__ = "embeddings"
+
+    id:          Mapped[int]  = mapped_column(primary_key=True)
+    speaker_id:  Mapped[str]  = mapped_column(index=True)
+    vec:         Mapped[list] = mapped_column(Vector(192))
+    created_at:  Mapped[datetime] = mapped_column(
+        default=datetime.utcnow, nullable=False
+    )
 
 
 def _device() -> str:

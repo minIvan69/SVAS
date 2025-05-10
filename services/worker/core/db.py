@@ -1,5 +1,32 @@
 import psycopg
 from .config import DB_URL
+
+import os, asyncio
+from contextlib import asynccontextmanager, contextmanager
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker, Session, create_engine
+
+DB_URL_ASYNC = os.getenv("DB_URL_ASYNC")  #  postgres+asyncpg://user:pwd@db:5432/voiceid
+DB_URL_SYNC  = os.getenv("DB_URL_SYNC")   #  postgres+psycopg://user:pwd@db:5432/voiceid
+
+async_engine = create_async_engine(DB_URL_ASYNC, echo=False)
+sync_engine  = create_engine(DB_URL_SYNC, echo=False)
+
+AsyncSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)
+SessionLocal      = sessionmaker(sync_engine,  expire_on_commit=False)
+
+
+@asynccontextmanager
+async def get_async_session() -> AsyncSession:
+    async with AsyncSessionLocal() as session:
+        yield session
+
+
+@contextmanager
+def get_sync_session() -> Session:
+    with SessionLocal() as session:
+        yield session
+
 def save_profile(user_id, tier, vecs):
     embedding = np.stack(vecs).mean(axis=0).tolist()
     with psycopg.connect(DB_URL) as conn:
