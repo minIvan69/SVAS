@@ -8,7 +8,8 @@ class Settings(BaseSettings):
 
     Any env var with prefix `SVAS_` overrides defaults, e.g. `SVAS_RABBIT_URL=`.
     """
-
+    DB_URL_ASYNC: str = "postgresql+asyncpg://postgres:postgres@db/voiceid"
+    DB_URL_SYNC:  str = "postgresql+psycopg://postgres:postgres@db/voiceid"
     # ── infra
     RABBIT_URL: str = "amqp://guest:guest@rabbitmq:5672//"
     POSTGRES_DSN: str = "postgresql+psycopg://svas_worker:password@postgres:5432/svas"

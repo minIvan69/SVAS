@@ -1,6 +1,6 @@
 
 from logging.config import fileConfig
-# from services.worker.core.models import Base           # ← наши ORM‑модели
+from services.worker.core.model import Base           # ← наши ORM‑модели
 from services.worker.core.db     import async_engine      # ← готовый async‑engine
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
