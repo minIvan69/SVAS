@@ -3,6 +3,7 @@ version: "3.8"
 services:
   db:
     image: ankane/pgvector:latest
+    restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
       POSTGRES_DB: voiceid
@@ -16,6 +17,15 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+
+  migrate:
+    build: ./services/worker # тот же образ, что и worker
+    command: alembic upgrade head
+    environment:
+      DB_URL_SYNC: "postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@db/voiceid"
+      DB_URL_ASYNC: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db/voiceid"
+    depends_on:
+      - db
 
   api:
     build: ./services/api
@@ -31,7 +41,10 @@ services:
     command: uvicorn app:app --host 0.0.0.0 --reload
 
   worker:
-    build: ./services/worker
+    # build: ./services/worker
+    build:
+      context: . # ← корень репо, а не services/worker
+      dockerfile: services/worker/Dockerfile
     environment:
       DB_URL_SYNC: "postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@db/voiceid"
       RABBIT_URL: "amqp://guest:guest@rabbit//"

@@ -35,3 +35,9 @@ source .venv/bin/activate
 ython services/worker/train_thresholds.py \
  --dataset-root ~/Datasets/voxceleb1/wav \
  --sample-fraction 1.0
+
+поднять db
+docker-compose -f docker-compose.dev.yml pull db # подтянуть новый тег
+docker-compose -f docker-compose.dev.yml up -d db # запустить только БД
+проверить
+docker-compose -f docker-compose.dev.yml ps

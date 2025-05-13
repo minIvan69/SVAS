@@ -2,7 +2,7 @@
 from logging.config import fileConfig
 from services.worker.core.model import Base           # ← наши ORM‑модели
 # from services.worker.core.db     import async_engine      # ← готовый async‑engine
-from services.worker.core.db     import sync_engine
+from services.worker.core.db import sync_engine as connectable
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -63,7 +63,7 @@ def run_migrations_online() -> None:
 
     """
     # connectable = async_engine  
-    connectable = sync_engine  
+    
 
     # connectable = engine_from_config(
     #     config.get_section(config.config_ini_section, {}),
