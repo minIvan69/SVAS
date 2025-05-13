@@ -19,7 +19,9 @@ services:
       - "15672:15672"
 
   migrate:
-    build: ./services/worker # тот же образ, что и worker
+    build:
+      context: . # ← корень репо, а не services/worker
+      dockerfile: services/worker/Dockerfile
     command: alembic upgrade head
     environment:
       DB_URL_SYNC: "postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@db/voiceid"
