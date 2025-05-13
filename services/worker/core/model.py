@@ -10,6 +10,8 @@ from typing import Optional
 
 from datetime import datetime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import Integer, VARCHAR
+# from sqlalchemy.dialects.postgresql import TSVECTOR
 from pgvector.sqlalchemy import Vector
 
 import torch
@@ -26,7 +28,8 @@ class Base(DeclarativeBase):
 class Embedding(Base):
     __tablename__ = "embeddings"
 
-    id:          Mapped[int]  = mapped_column(primary_key=True)
+    id:   Mapped[int] = mapped_column(Integer, primary_key=True)
+    user: Mapped[str] = mapped_column(VARCHAR(64), unique=True, index=True)
     speaker_id:  Mapped[str]  = mapped_column(index=True)
     vec:         Mapped[list] = mapped_column(Vector(192))
     created_at:  Mapped[datetime] = mapped_column(

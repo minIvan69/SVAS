@@ -8,6 +8,8 @@ pydantic
 celery
 pytest==8.2.0          # ← добавили
 pydantic-settings==2.2.1
+alembic==1.13     
+
 
 # PyTorch CPU / arm64
 torch==2.2.1         #   ↓ версии должны совпадать
