@@ -1,3 +1,12 @@
+# services/worker/celery_app.py
 from celery import Celery
-from .config import RABBIT_URL
-celery_app = Celery('worker', broker=RABBIT_URL)
+from core.config import settings   # ваш pydantic‑Settings
+
+celery_app = Celery(
+    "voiceid",
+    broker=settings.RABBIT_URL,
+    backend=settings.RABBIT_URL,   # или Redis, если настроите
+)
+celery_app.conf.task_serializer = "json"
+celery_app.conf.result_serializer = "json"
+celery_app.conf.accept_content = ["json"]

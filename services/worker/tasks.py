@@ -8,6 +8,10 @@ from core.preprocessing import denoise_and_split
 from core.model import get_model
 from core.scoring import score_embedding
 from core.db import save_profile, load_profile
+from celery_app import celery_app
+from core.model import extractor            # SpeakerRecognition wrapper
+from core.db import async_session_maker     # ваш create_async_engine(...)
+from crud import add_embedding
 
 celery_app = Celery(
     "svas",
@@ -63,3 +67,18 @@ def verify_task(user_id: str, wav_path: str, tier: str):
     profile = load_profile(user_id, tier)
     score, match = score_embedding(emb, profile, tier)
     return {"score": score, "match": match}
+
+@celery_app.task(name="voiceid.extract")
+def extract_task(user: str, speaker_id: str, wav_path: str):
+    """Сохраняет вектор в БД."""
+    # 1) вычисляем эмбеддинг
+    vec = extractor(wav_path)               # → numpy.ndarray(shape=(192,))
+    # 2) сохраняем
+    import asyncio, numpy as np
+    async def _save():
+        async with async_session_maker() as db:
+            await add_embedding(db,
+                                user=user,
+                                speaker_id=speaker_id,
+                                vec=vec.astype(np.float32).tolist())
+    asyncio.run(_save())

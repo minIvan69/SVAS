@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   db:
-    build: ./docker/db
+    image: pgvector/pgvector:pg15
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
@@ -35,9 +35,7 @@ services:
       DB_URL_ASYNC: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db/voiceid"
       RABBIT_URL: "amqp://guest:guest@rabbit//"
       API_KEY: "${API_KEY}"
-    depends_on:
-      - db
-      - rabbit
+    depends_on: [db, rabbit, migrate]
     ports:
       - "8000:8000"
     command: uvicorn app:app --host 0.0.0.0 --reload
@@ -48,12 +46,11 @@ services:
       context: . # ← корень репо, а не services/worker
       dockerfile: services/worker/Dockerfile
     environment:
-      DB_URL_SYNC: "postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@db/voiceid"
+      DB_URL_ASYNC: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db/voiceid
+      DB_URL_SYNC: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@db/voiceid
       RABBIT_URL: "amqp://guest:guest@rabbit//"
-    depends_on:
-      - db
-      - rabbit
-    command: celery -A tasks worker -l info
+    depends_on: [db, rabbit, migrate]
+    command: celery -A services.worker.celery_app.celery_app worker -l info
 
 volumes:
   pgdata:
