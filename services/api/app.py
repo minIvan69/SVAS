@@ -23,6 +23,10 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 def check_key(x_api_key: str = Header(...)):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=403, detail="invalid key")
+    
+@app.get("/ping")
+async def ping():
+    return {"status": "ok"}
 
 
 @app.post("/enroll/")
