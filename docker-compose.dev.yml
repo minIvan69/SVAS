@@ -30,7 +30,9 @@ services:
       - db
 
   api:
-    build: ./services/api
+    build:
+      context: . # корень репозитория
+      dockerfile: services/api/Dockerfile
     environment:
       DB_URL_ASYNC: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db/voiceid"
       RABBIT_URL: "amqp://guest:guest@rabbit//"
@@ -38,7 +40,7 @@ services:
     depends_on: [db, rabbit, migrate]
     ports:
       - "8000:8000"
-    # command: uvicorn app:app --host 0.0.0.0 --reload
+    command: uvicorn app:app --host 0.0.0.0 --reload
 
   worker:
     # build: ./services/worker
