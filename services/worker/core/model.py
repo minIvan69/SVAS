@@ -24,6 +24,16 @@ __all__ = ["get_speaker_model", "extract_embedding"]
 class Base(DeclarativeBase):
     pass
 
+_model: SpeakerRecognition | None = None
+
+def get_model() -> SpeakerRecognition:
+    global _model
+    if _model is None:
+        _model = SpeakerRecognition.from_hparams(
+            source="speechbrain/spkrec-ecapa-voxceleb",
+            savedir="/root/.cache/speechbrain/ecapa"   # чтобы качалось один раз
+        )
+    return _model
 
 class Embedding(Base):
     __tablename__ = "embeddings"

@@ -36,7 +36,7 @@ services:
     environment:
       UPLOAD_DIR: "/app/uploads"
       DB_URL_ASYNC: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db/voiceid"
-      RABBIT_URL: "amqp://guest:guest@rabbit//"
+      RABBIT_URL: "amqp://guest:guest@rabbit:5672//"
       API_KEY: "${API_KEY}"
     depends_on: [db, rabbit, migrate]
     ports:
@@ -53,7 +53,7 @@ services:
     environment:
       DB_URL_ASYNC: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db/voiceid
       DB_URL_SYNC: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@db/voiceid
-      RABBIT_URL: "amqp://guest:guest@rabbit//"
+      RABBIT_URL: "amqp://guest:guest@rabbit:5672//"
     depends_on: [db, rabbit, migrate]
 
     command: >

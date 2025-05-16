@@ -1,17 +1,21 @@
+import numpy as np
+from requests import Session
 import os, asyncio, uuid, torch
 from celery import Celery
-from services.worker.core.db import get_sync_session
+from services.worker.core.db import SessionLocal, get_sync_session
 from services.worker.core.model import Embedding, Base
 from services.worker.core import preprocess, extract_embedding, verify
 from services.worker.core.celery_app import celery_app
 from services.worker.core.preprocessing import denoise_and_split
-from services.worker.core.model import get_speaker_model as get_model
+from services.worker.core.model import get_speaker_model, get_model
 from services.worker.core.scoring import verify
 from services.worker.core.model   import extract_embedding
 from services.worker.core.db import save_profile, load_profile
 from services.worker.core.celery_app import celery_app
 from services.worker.core.db import async_session_maker     # ваш create_async_engine(...)
 from .crud import add_embedding
+from sklearn.metrics.pairwise import cosine_similarity
+
 
 celery_app = Celery(
     "svas",
@@ -51,22 +55,73 @@ def verify_voice(speaker_id: str, wav_path: str):
     result = verify(probe, profile)
     return result
 
-@celery_app.task
-def enroll_task(user_id: str, wav_path: str, tier: str):
-    segments = denoise_and_split(wav_path)
+@celery_app.task(name="services.worker.tasks.enroll_task")
+def enroll_task(speaker_id: str, user: str, wav_path: str) -> None:
+    """
+    • denoise + ресемплинг 16 kHz  
+    • берём ≤5 кусков по 2–3 сек, считаем эмбеддинги, усредняем  
+    • сохраняем в pgvector
+    """
     model = get_model()
-    vecs = [ model.encode(seg) for seg in segments[:5] ]
-    save_profile(user_id, tier, vecs)
-    return True
 
-@celery_app.task
-def verify_task(user_id: str, wav_path: str, tier: str):
-    segments = denoise_and_split(wav_path)
+    # ① speechbrain ожидает 16 kHz float32 tensor [-1,1]
+    segments = denoise_and_split(wav_path, sr=16_000)
+
+    if not segments:
+        raise RuntimeError("no speech found")
+
+    # в батч → [B, T]
+    batch = torch.stack([torch.tensor(seg) for seg in segments[:5]])
+    # ② получаем [B, 192]
+    embeds = model.encode_batch(batch).squeeze(1)        # -> Tensor[B,192]
+    vec = embeds.mean(dim=0).cpu().numpy()               # -> np.ndarray[192]
+
+    # ③ INSERT INTO embeddings…
+    with Session() as db:
+        db.add(Embedding(user=user,
+                         speaker_id=speaker_id,
+                         vec=vec.tolist()))
+        db.commit()
+
+@celery_app.task(name="services.worker.tasks.verify_task")   # !!! имя должно совпадать
+def verify_task(speaker_id: str, wav_path: str) -> dict:
+    """
+    • вытаскивает эмбеддинг тестового файла
+    • сравнивает с эталонными векторами speaker_id
+    • возвращает {'score': float, 'success': bool}
+    """
     model = get_model()
-    emb = model.encode(segments)
-    profile = load_profile(user_id, tier)
-    score, match = verify(emb, profile, tier)
-    return {"score": score, "match": match}
+
+    # ---------- 1. эмбеддинг проверочного файла ----------
+    # encode_file принимает путь к 16-kHz WAV и сам делает VAD/нормализацию
+    probe_vec = (
+        model.encode_file(wav_path)     # Tensor[1,192]
+        .squeeze(0)                     # -> [192]
+        .cpu()
+        .numpy()
+    )
+
+    # ---------- 2. достаём все reference-векторы ----------
+    with SessionLocal() as db:
+        refs = (
+            db.query(Embedding.vec)
+              .filter(Embedding.speaker_id == speaker_id)
+              .all()
+        )
+
+    if not refs:
+        raise RuntimeError(f"No embeddings for speaker_id={speaker_id}")
+
+    ref_vecs = np.vstack([row[0] for row in refs])        # shape [N,192]
+
+    # ---------- 3. cosine score ----------
+    # возвращается [[score]], берём [0][0]
+    score: float = cosine_similarity([probe_vec], ref_vecs).max()
+
+    # порог можно вынести в settings
+    matched = score > 0.75
+
+    return {"score": score, "success": matched}
 
 @celery_app.task(name="voiceid.extract")
 def extract_task(user: str, speaker_id: str, wav_path: str):

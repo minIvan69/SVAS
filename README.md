@@ -41,3 +41,9 @@ docker-compose -f docker-compose.dev.yml pull db # подтянуть новый
 docker-compose -f docker-compose.dev.yml up -d db # запустить только БД
 проверить
 docker-compose -f docker-compose.dev.yml ps
+
+curl -X POST "http://localhost:8000/enroll/?user=sweet" \
+ -F "file=@uploads/sweet1.wav"
+
+curl -X POST "http://localhost:8000/verify/?user=sweet" \
+ -F "file=@uploads/sweet1.wav"

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     DB_URL_ASYNC: str = "postgresql+asyncpg://postgres:postgres@db/voiceid"
     DB_URL_SYNC:  str = "postgresql+psycopg://postgres:postgres@db:5432/voiceid"
     # ── infra
-    RABBIT_URL: str = "amqp://guest:guest@rabbitmq:5672//"
+    RABBIT_URL: str = "amqp://guest:guest@rabbit:5672//"
     POSTGRES_DSN: str = "postgresql+psycopg://svas_worker:password@postgres:5432/svas"
 
     # ── paths / models
