@@ -2,15 +2,24 @@
 import os, tempfile, shutil, uuid
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends, Header
 from starlette.background import BackgroundTasks
-from celery.result import AsyncResult
+# from celery.result import AsyncResult
 from worker.tasks import celery_app
-from core.db import get_async_session
-from core.models import Base
+from worker.core.db import async_session_maker
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
-from celery_app import celery_app
+# from celery_app import celery_app
 from deps import get_async_session
 from crud import get_by_user
 import shutil, uuid, pathlib, aiofiles
+from celery import Celery, states
+
+celery_app = Celery(
+     'svas',
+     broker=os.getenv('RABBIT_URL', 'amqp://guest:guest@rabbit//'),
+     backend=os.getenv('DB_URL_ASYNC'),
+)
 
 API_KEY = os.getenv("API_KEY", "changeme")
 
@@ -19,6 +28,12 @@ app = FastAPI(title="VoiceID API")
 
 UPLOAD_DIR = pathlib.Path("/tmp/voiceid")
 UPLOAD_DIR.mkdir(exist_ok=True)
+# 2) «Фабрика» сессий --------------------------------------------------
+
+@asynccontextmanager
+async def get_async_session() -> AsyncIterator[AsyncSession]:
+    async with async_session_maker() as session:
+        yield session
 
 def check_key(x_api_key: str = Header(...)):
     if x_api_key != API_KEY:
@@ -71,7 +86,9 @@ async def verify(
 
 @app.get("/result/{task_id}")
 async def result(task_id: str, _=Depends(check_key)):
-    res = AsyncResult(task_id, app=celery_app)
-    if not res.ready():
-        return {"status": res.status}
-    return res.result
+    # res = AsyncResult(task_id, app=celery_app)
+    # if not res.ready():
+    #     return {"status": res.status}
+    # return res.result
+    return {"status": "deprecated"}
+
