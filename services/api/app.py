@@ -3,15 +3,15 @@ import os, tempfile, shutil, uuid
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends, Header
 from starlette.background import BackgroundTasks
 # from celery.result import AsyncResult
-from worker.tasks import celery_app
-from worker.core.db import async_session_maker
+# from worker.tasks import celery_app
+from services.worker.core.db import async_session_maker
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 # from celery_app import celery_app
-from deps import get_async_session
-from crud import get_by_user
+from services.api.deps import get_async_session
+from services.api.crud import get_by_user
 import shutil, uuid, pathlib, aiofiles
 from celery import Celery, states
 

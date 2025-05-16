@@ -40,7 +40,7 @@ services:
     depends_on: [db, rabbit, migrate]
     ports:
       - "8000:8000"
-    command: uvicorn app:app --host 0.0.0.0 --reload
+    command: uvicorn services.api.app:app --host 0.0.0.0 --reload
 
   worker:
     # build: ./services/worker

@@ -82,3 +82,7 @@ def extract_task(user: str, speaker_id: str, wav_path: str):
                                 speaker_id=speaker_id,
                                 vec=vec.astype(np.float32).tolist())
     asyncio.run(_save())
+
+@celery_app.task
+def verify_speaker(user: str, audio_url: str) -> bool:
+    return verify(user, audio_url)

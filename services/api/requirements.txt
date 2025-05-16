@@ -2,14 +2,30 @@
 # alembic==1.13 
 # asyncpg>=0.29
 # sqlalchemy>=2.0
-# pgvector
 # fastapi==0.111
 fastapi==0.111
 uvicorn[standard]==0.29
-pydantic[email]==2.*
-sqlalchemy[asyncio]==2.*
-asyncpg>=0.29
+aiofiles
+
+speechbrain==0.5.16
+pgvector==0.2.4
+soundfile==0.12
+numpy==1.26.4
+scipy
+pandas
+pydantic
+
+pytest==8.2.0          # ← добавили
+alembic==1.13     
+# ───────── База / брокер ─────────
+sqlalchemy[asyncio]>=2.0
+asyncpg==0.30.0         
+scikit-learn==1.4.2
 
 celery[rabbitmq]==5.3.6      #  ←   + celery
 psycopg[binary]==3.2.7
 pydantic-settings==2.2.1
+
+# PyTorch CPU / arm64
+torch==2.2.1         #   ↓ версии должны совпадать
+torchaudio==2.2.1    #   ↑ 2.2.1 есть для cp311 manylinux x86_64 / aarch64
