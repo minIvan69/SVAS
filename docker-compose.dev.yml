@@ -34,6 +34,7 @@ services:
       context: . # корень репозитория
       dockerfile: services/api/Dockerfile
     environment:
+      UPLOAD_DIR: "/app/uploads"
       DB_URL_ASYNC: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db/voiceid"
       RABBIT_URL: "amqp://guest:guest@rabbit//"
       API_KEY: "${API_KEY}"
@@ -41,6 +42,8 @@ services:
     ports:
       - "8000:8000"
     command: uvicorn services.api.app:app --host 0.0.0.0 --reload
+    volumes:
+      - ./uploads:/app/uploads
 
   worker:
     # build: ./services/worker

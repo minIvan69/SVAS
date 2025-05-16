@@ -82,3 +82,12 @@ def preprocess(path: str | Path, *, denoise: bool = True) -> List[torch.Tensor]:
         w = _denoise(w)
     w = _apply_vad(w)
     return segment(w)
+
+def denoise_and_split(wav_path: Path) -> List[Path]:
+    """
+    Заглушка. Пока просто возвращает полученный файл без изменений.
+    Если позже понадобится шумоподавление/нарезка, реализуйте здесь.
+    """
+    if isinstance(wav_path, str):
+        wav_path = Path(wav_path)
+    return [wav_path]

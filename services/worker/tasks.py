@@ -1,16 +1,16 @@
 import os, asyncio, uuid, torch
 from celery import Celery
-from core.db import get_sync_session
-from core.models import Embedding, Base
-from core import preprocess, extract_embedding, verify
-from core.celery_app import celery_app
-from core.preprocessing import denoise_and_split
-from core.model import get_model
-from core.scoring import score_embedding
-from core.db import save_profile, load_profile
+from services.worker.core.db import get_sync_session
+from services.worker.core.model import Embedding, Base
+from services.worker.core import preprocess, extract_embedding, verify
+from services.worker.core.celery_app import celery_app
+from services.worker.core.preprocessing import denoise_and_split
+from services.worker.core.model import get_model
+from services.worker.core.scoring import score_embedding
+from services.worker.core.db import save_profile, load_profile
 from celery_app import celery_app
-from core.model import extractor            # SpeakerRecognition wrapper
-from core.db import async_session_maker     # ваш create_async_engine(...)
+from services.worker.core.model import extractor            # SpeakerRecognition wrapper
+from services.worker.core.db import async_session_maker     # ваш create_async_engine(...)
 from crud import add_embedding
 
 celery_app = Celery(

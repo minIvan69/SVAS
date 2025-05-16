@@ -1,6 +1,6 @@
 # services/worker/celery_app.py
 from celery import Celery
-from core.config import settings   # ваш pydantic‑Settings
+from services.worker.core.config import settings   # ваш pydantic‑Settings
 
 celery_app = Celery(
     "voiceid",
