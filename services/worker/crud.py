@@ -1,7 +1,7 @@
 # services/worker/crud.py
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import insert, select
-from services.worker.core.models import Embedding  # ORM‑модель
+from services.worker.core.model import Embedding  # ORM‑модель
 
 async def add_embedding(db: AsyncSession, *, user: str, speaker_id: str, vec):
     stmt = insert(Embedding).values(

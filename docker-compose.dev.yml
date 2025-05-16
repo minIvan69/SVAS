@@ -55,7 +55,14 @@ services:
       DB_URL_SYNC: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@db/voiceid
       RABBIT_URL: "amqp://guest:guest@rabbit//"
     depends_on: [db, rabbit, migrate]
-    command: celery -A services.worker.celery_app.celery_app worker -l info
+
+    command: >
+      bash -c "export PYTHONPATH=/app &&
+      celery -A services.worker.core.celery_app:celery_app worker -l info
+      "
+    volumes:
+      - ./services:/app/services
+      - ./uploads:/app/uploads
 
 volumes:
   pgdata:
