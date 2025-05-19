@@ -15,7 +15,7 @@ from services.worker.core.celery_app import celery_app
 from services.worker.core.db import async_session_maker     # ваш create_async_engine(...)
 from .crud import add_embedding
 from sklearn.metrics.pairwise import cosine_similarity
-
+import torch
 
 celery_app = Celery(
     "svas",
@@ -72,8 +72,9 @@ def enroll_task(speaker_id: str, user: str, wav_path: str) -> None:
 
     # в батч → [B, T]
     batch = torch.stack([torch.tensor(seg) for seg in segments[:5]])
+    batch_tensor = torch.tensor(batch, dtype=torch.float32)
     # ② получаем [B, 192]
-    embeds = model.encode_batch(batch).squeeze(1)        # -> Tensor[B,192]
+    embeds = model.encode_batch(batch_tensor).squeeze(1)          # -> Tensor[B,192]
     vec = embeds.mean(dim=0).cpu().numpy()               # -> np.ndarray[192]
 
     # ③ INSERT INTO embeddings…

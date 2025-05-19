@@ -6,7 +6,10 @@ from contextlib import asynccontextmanager, contextmanager
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy import create_engine  
-import numpy as np
+import numpy as np, json, pathlib, os
+
+BASE = pathlib.Path("/app/profiles"); BASE.mkdir(exist_ok=True)
+
 
 DB_URL_ASYNC = os.getenv("DB_URL_ASYNC")  #  postgres+asyncpg://user:pwd@db:5432/voiceid
 DB_URL_SYNC  = os.getenv("DB_URL_SYNC")   #  postgres+psycopg://user:pwd@db:5432/voiceid
@@ -47,3 +50,16 @@ def load_profile(user_id, tier):
           (user_id, tier)
         ).fetchone()
     return np.array(row[0])
+
+def _path(uid: str, tier: str):
+    return BASE / f"{uid}_{tier}.json"
+
+def save_profile(uid: str, tier: str, vecs):
+    with _path(uid, tier).open("w") as f:
+        json.dump([v.tolist() for v in vecs], f)
+
+
+def load_profile(uid: str, tier: str):
+    p = _path(uid, tier)
+    if not p.exists(): return None
+    return np.array(json.load(p), dtype=np.float32)

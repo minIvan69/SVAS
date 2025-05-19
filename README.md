@@ -47,3 +47,5 @@ curl -X POST "http://localhost:8000/enroll/?user=sweet" \
 
 curl -X POST "http://localhost:8000/verify/?user=sweet" \
  -F "file=@uploads/sweet1.wav"
+
+docker compose -f docker-compose.dev.yml up -d --build api (контейнер) запуск с подтягиванием

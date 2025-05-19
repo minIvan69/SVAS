@@ -11,6 +11,7 @@ from typing import Literal, Tuple
 import numpy as np
 import torch
 from sklearn.linear_model import LogisticRegression
+from scipy.spatial.distance import cosine
 # from speechbrain.utils.metric_learning import SB_PLDA, score_plda
 
 from speechbrain.processing.PLDA_LDA import PLDA as SB_PLDA, fast_PLDA_scoring as score_plda
@@ -20,6 +21,7 @@ from .config import load_thresholds, settings
 # ------------------------------------------------------------------
 # helpers
 # ------------------------------------------------------------------
+THRESHOLD = 0.75
 
 
 def _l2_normalize(v: torch.Tensor) -> torch.Tensor:
@@ -29,7 +31,10 @@ def _l2_normalize(v: torch.Tensor) -> torch.Tensor:
 # ------------------------------------------------------------------
 # models – lazy singletons to keep memory footprint low
 # ------------------------------------------------------------------
-
+def score_embedding(emb: np.ndarray, profile: np.ndarray, tier="default"):
+    sims = 1 - np.array([cosine(emb, p) for p in profile])
+    score = float(sims.mean())
+    return score, bool(score > THRESHOLD)
 
 def _plda_path() -> Path:
     return settings.THRESHOLDS_PATH.with_name("plda.pkl")

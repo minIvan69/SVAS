@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import List
-
+from pathlib import Path
+import numpy as np
 import torch
-import torchaudio
-
+import torchaudio, torchaudio.transforms as T, tempfile, pathlib
 from .config import settings
 
 # ── RNNoise (optional on arm64) ───────────────────────────────────────────────
@@ -83,11 +83,51 @@ def preprocess(path: str | Path, *, denoise: bool = True) -> List[torch.Tensor]:
     w = _apply_vad(w)
     return segment(w)
 
-def denoise_and_split(wav_path: Path) -> List[Path]:
+def denoise_and_split(
+        wav_path: Path | str,
+        *_,                          #  ← примет все позиционные «лишние»
+        **__,                        #  ← и любые именованные аргументы
+) -> list[np.ndarray]:
     """
-    Заглушка. Пока просто возвращает полученный файл без изменений.
-    Если позже понадобится шумоподавление/нарезка, реализуйте здесь.
+    ВРЕМЕННАЯ ЗАГЛУШКА ⚠️
+    Принимает любые дополнительные аргументы и просто отдаёт
+    «как есть» один-единственный фрагмент аудио (без денойза
+    и без разбивки), чтобы Celery-таски не падали.
     """
-    if isinstance(wav_path, str):
-        wav_path = Path(wav_path)
-    return [wav_path]
+
+    # ── минимальная реализация ───────────────────────────────
+    import soundfile as sf
+    # import librosa
+
+    y, sr = sf.read(wav_path)          # load wav
+    # if y.ndim > 1:                     # стерео → моно
+    #     y = librosa.to_mono(y.T)
+
+    return [y.astype(np.float32)]      # один «сегмент» в списке
+
+# def denoise_and_split(
+#         wav_path: Path | str,
+#         *,
+#         sr: int = 16_000,          #  ➜  добавили аргумент со значением по-умолчанию
+#         chunk_sec: float = 1.5,
+#         silence_sec: float = 0.3,
+# ) -> list[np.ndarray]:
+    
+#     y, file_sr = librosa.load(wav_path, sr=None, mono=True)
+#     if file_sr != sr:
+#         y = librosa.resample(y, orig_sr=file_sr, target_sr=sr)
+#     sig, sr = torchaudio.load(wav_path)
+
+#     # if sr != sr_out:
+#     #     sig = torchaudio.functional.resample(sig, sr, sr_out)
+#     # очень простой VAD: режем на окна фикс. длины
+#     n, step = sig.shape[-1], int(win_sec * sr_out)
+#     parts = []
+#     for i in range(0, n, step):
+#         chunk = sig[:, i:i+step]
+#         if chunk.shape[-1] < step: break
+#         tmp = tempfile.NamedTemporaryFile(
+#             suffix=".wav", delete=False, dir="/tmp").name
+#         torchaudio.save(tmp, chunk, sr_out)
+#         parts.append(tmp)
+#     return parts

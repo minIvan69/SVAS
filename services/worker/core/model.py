@@ -6,8 +6,10 @@ instance across Celery workers (each worker process will hold its own copy).
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
-
+from typing import Optional, Union, Sequence
+import torch
+import torchaudio
+import numpy as np
 from datetime import datetime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, VARCHAR
@@ -15,9 +17,13 @@ from sqlalchemy import Integer, VARCHAR
 from pgvector.sqlalchemy import Vector
 
 import torch
-from speechbrain.pretrained import SpeakerRecognition
+from speechbrain.pretrained import SpeakerRecognition,EncoderClassifier
 
 from .config import settings
+
+SR = 16_000
+MODEL_SOURCE = "speechbrain/spkrec-ecapa-voxceleb"
+CACHE_DIR    = "/root/.cache/speechbrain"   
 
 __all__ = ["get_speaker_model", "extract_embedding"]
 
@@ -26,14 +32,57 @@ class Base(DeclarativeBase):
 
 _model: SpeakerRecognition | None = None
 
-def get_model() -> SpeakerRecognition:
-    global _model
-    if _model is None:
-        _model = SpeakerRecognition.from_hparams(
-            source="speechbrain/spkrec-ecapa-voxceleb",
-            savedir="/root/.cache/speechbrain/ecapa"   # чтобы качалось один раз
-        )
-    return _model
+@lru_cache
+def _sb_model() -> SpeakerRecognition:
+    return SpeakerRecognition.from_hparams(
+        source="speechbrain/spkrec-ecapa-voxceleb",
+        savedir="/app/.cache/speechbrain"
+    )
+
+def _to_tensor(wav: Union[str, np.ndarray, torch.Tensor]) -> torch.Tensor:
+    if isinstance(wav, str):                       # путь к файлу
+        sig, sr = torchaudio.load(wav)
+    elif isinstance(wav, np.ndarray):
+        sig = torch.from_numpy(wav).unsqueeze(0)
+        sr = SR
+    else:
+        sig, sr = wav.unsqueeze(0), SR
+
+    if sr != SR:
+        sig = torchaudio.functional.resample(sig, sr, SR)
+    return sig
+
+class _Wrapper:
+    """Добавляем метод `encode`, чтобы старая логика не падала."""
+    def __init__(self, m: SpeakerRecognition):
+        self._m = m
+
+    def encode(self, wav: Union[str, np.ndarray, torch.Tensor]) -> np.ndarray:
+        with torch.no_grad():
+            emb = self._m.encode_batch(_to_tensor(wav)).squeeze(0)
+        return emb.cpu().numpy()
+
+@lru_cache(maxsize=1)
+def get_model():
+    """
+    Скачивает (один раз) и возвращает
+    SpeechBrain EncoderClassifier с методом encode_batch().
+    """
+    return EncoderClassifier.from_hparams(
+        source  = MODEL_SOURCE,
+        savedir = CACHE_DIR,
+        run_opts={"device": "cpu"},        # GPU не предполагается в Dev-контейнере
+    )
+
+
+# def get_model() -> SpeakerRecognition:
+#     global _model
+#     if _model is None:
+#         _model = SpeakerRecognition.from_hparams(
+#             source="speechbrain/spkrec-ecapa-voxceleb",
+#             savedir="/root/.cache/speechbrain/ecapa"   # чтобы качалось один раз
+#         )
+#     return _model
 
 class Embedding(Base):
     __tablename__ = "embeddings"
