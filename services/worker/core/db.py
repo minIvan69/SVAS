@@ -13,6 +13,7 @@ BASE = pathlib.Path("/app/profiles"); BASE.mkdir(exist_ok=True)
 
 DB_URL_ASYNC = os.getenv("DB_URL_ASYNC")  #  postgres+asyncpg://user:pwd@db:5432/voiceid
 DB_URL_SYNC  = os.getenv("DB_URL_SYNC")   #  postgres+psycopg://user:pwd@db:5432/voiceid
+# DATABASE_URL_SYNC = "postgresql://user:password@db:5432/voiceid"
 
 async_engine = create_async_engine(settings.DB_URL_ASYNC, echo=False)
 sync_engine  = create_engine(settings.DB_URL_SYNC, echo=False)

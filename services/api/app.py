@@ -30,11 +30,13 @@ class EnrollOut(BaseModel):
     speaker_id: str
     file: str
 
-class VerifyIn(_FileBody):
-    speaker_id: str = Field(..., examples=["a21f…"])
+class VerifyIn(BaseModel):
+    speaker_id: str
+    filename: str  # имя файла для проверки в папке uploads/
 
 class VerifyOut(BaseModel):
     task_id: str
+    speaker_id: str
     file: str
 
 # ─────────── auth-header helper ─────────────────────────────────────────────────
@@ -88,14 +90,18 @@ async def verify(body: VerifyIn, _: Annotated[None, Depends(check_key)]):
     выше зарегистрированному **body.speaker_id**.
     """
     file_path = UPLOAD_DIR / body.filename
-    _assert_wav(file_path)
+    if not file_path.exists():
+        raise HTTPException(404, f"{body.filename} not found in uploads/")
+    if file_path.suffix.lower() != ".wav":
+        raise HTTPException(415, "only .wav files accepted")
+    # _assert_wav(file_path)
 
     task = celery_app.send_task(
         "services.worker.tasks.verify_task",
         args=[body.speaker_id, str(file_path)],
     )
 
-    return VerifyOut(task_id=task.id, file=body.filename)
+    return VerifyOut(task_id=task.id, speaker_id=body.speaker_id, file=body.filename)
 
 # ─────────── посмотреть статус/результат ────────────────────────────────────────
 @app.get("/result/{task_id}")

@@ -16,6 +16,7 @@ from services.worker.core.db import async_session_maker     # ваш create_asyn
 from .crud import add_embedding
 from sklearn.metrics.pairwise import cosine_similarity
 import torch
+from scipy.spatial.distance import cosine
 
 celery_app = Celery(
     "svas",
@@ -56,73 +57,135 @@ def verify_voice(speaker_id: str, wav_path: str):
     return result
 
 @celery_app.task(name="services.worker.tasks.enroll_task")
-def enroll_task(speaker_id: str, user: str, wav_path: str) -> None:
-    """
-    • denoise + ресемплинг 16 kHz  
-    • берём ≤5 кусков по 2–3 сек, считаем эмбеддинги, усредняем  
-    • сохраняем в pgvector
-    """
-    model = get_model()
+def enroll_task(speaker_id, user, wav_path):
+    segments = denoise_and_split(wav_path)
 
-    # ① speechbrain ожидает 16 kHz float32 tensor [-1,1]
-    segments = denoise_and_split(wav_path, sr=16_000)
-
-    if not segments:
-        raise RuntimeError("no speech found")
-
-    # в батч → [B, T]
-    batch = torch.stack([torch.tensor(seg) for seg in segments[:5]])
+    model = get_speaker_model()
+    batch = np.stack(segments[:5])
     batch_tensor = torch.tensor(batch, dtype=torch.float32)
-    # ② получаем [B, 192]
-    embeds = model.encode_batch(batch_tensor).squeeze(1)          # -> Tensor[B,192]
-    vec = embeds.mean(dim=0).cpu().numpy()               # -> np.ndarray[192]
 
-    # ③ INSERT INTO embeddings…
-    with Session() as db:
-        db.add(Embedding(user=user,
-                         speaker_id=speaker_id,
-                         vec=vec.tolist()))
+    with torch.no_grad():
+        embeds = model.encode_batch(batch_tensor).squeeze(1)
+
+    final_embedding = embeds.mean(dim=0).numpy()
+
+    # Используем синхронную сессию:
+    db = SessionLocal()
+    try:
+        embedding = Embedding(
+            user=user,
+            speaker_id=speaker_id,
+            vec=final_embedding,
+        )
+        db.add(embedding)
         db.commit()
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+
+    return {"status": "success"}
+# def enroll_task(speaker_id: str, user: str, wav_path: str) -> None:
+#     """
+#     • denoise + ресемплинг 16 kHz  
+#     • берём ≤5 кусков по 2–3 сек, считаем эмбеддинги, усредняем  
+#     • сохраняем в pgvector
+#     """
+#     model = get_model()
+
+#     # ① speechbrain ожидает 16 kHz float32 tensor [-1,1]
+#     segments = denoise_and_split(wav_path, sr=16_000)
+
+#     if not segments:
+#         raise RuntimeError("no speech found")
+
+#     # в батч → [B, T]
+#     batch = torch.stack([torch.tensor(seg) for seg in segments[:5]])
+#     batch_tensor = torch.tensor(batch, dtype=torch.float32)
+#     # ② получаем [B, 192]
+#     embeds = model.encode_batch(batch_tensor).squeeze(1)          # -> Tensor[B,192]
+#     vec = embeds.mean(dim=0).cpu().numpy()               # -> np.ndarray[192]
+
+#     # ③ INSERT INTO embeddings…
+#     with Session() as db:
+#         db.add(Embedding(user=user,
+#                          speaker_id=speaker_id,
+#                          vec=vec.tolist()))
+#         db.commit()
 
 @celery_app.task(name="services.worker.tasks.verify_task")   # !!! имя должно совпадать
-def verify_task(speaker_id: str, wav_path: str) -> dict:
-    """
-    • вытаскивает эмбеддинг тестового файла
-    • сравнивает с эталонными векторами speaker_id
-    • возвращает {'score': float, 'success': bool}
-    """
-    model = get_model()
+def verify_task(speaker_id, wav_path):
+    segments = denoise_and_split(wav_path)
+    model = get_speaker_model()
 
-    # ---------- 1. эмбеддинг проверочного файла ----------
-    # encode_file принимает путь к 16-kHz WAV и сам делает VAD/нормализацию
-    probe_vec = (
-        model.encode_file(wav_path)     # Tensor[1,192]
-        .squeeze(0)                     # -> [192]
-        .cpu()
-        .numpy()
-    )
+    batch = np.stack(segments[:5])
+    batch_tensor = torch.tensor(batch, dtype=torch.float32)
 
-    # ---------- 2. достаём все reference-векторы ----------
-    with SessionLocal() as db:
-        refs = (
-            db.query(Embedding.vec)
-              .filter(Embedding.speaker_id == speaker_id)
-              .all()
-        )
+    with torch.no_grad():
+        embeds = model.encode_batch(batch_tensor).squeeze(1)
 
-    if not refs:
-        raise RuntimeError(f"No embeddings for speaker_id={speaker_id}")
+    final_embedding = embeds.mean(dim=0).numpy()
 
-    ref_vecs = np.vstack([row[0] for row in refs])        # shape [N,192]
+    db = SessionLocal()
+    try:
+        embedding_in_db = db.query(Embedding).filter(Embedding.speaker_id == speaker_id).one_or_none()
 
-    # ---------- 3. cosine score ----------
-    # возвращается [[score]], берём [0][0]
-    score: float = cosine_similarity([probe_vec], ref_vecs).max()
+        if embedding_in_db is None:
+            return {"status": "fail", "detail": "speaker not found"}
 
-    # порог можно вынести в settings
-    matched = score > 0.75
+        stored_embedding = embedding_in_db.vec
+        similarity = 1 - cosine(stored_embedding, final_embedding)
 
-    return {"score": score, "success": matched}
+        threshold = 0.75  # пример порога
+        verified = similarity > threshold
+
+        return {
+            "status": "success",
+            "verified": bool(verified),
+            "similarity": float(similarity)
+        }
+
+    finally:
+        db.close()
+# def verify_task(speaker_id: str, wav_path: str) -> dict:
+#     """
+#     • вытаскивает эмбеддинг тестового файла
+#     • сравнивает с эталонными векторами speaker_id
+#     • возвращает {'score': float, 'success': bool}
+#     """
+#     model = get_model()
+
+#     # ---------- 1. эмбеддинг проверочного файла ----------
+#     # encode_file принимает путь к 16-kHz WAV и сам делает VAD/нормализацию
+#     probe_vec = (
+#         model.encode_file(wav_path)     # Tensor[1,192]
+#         .squeeze(0)                     # -> [192]
+#         .cpu()
+#         .numpy()
+#     )
+
+#     # ---------- 2. достаём все reference-векторы ----------
+#     with SessionLocal() as db:
+#         refs = (
+#             db.query(Embedding.vec)
+#               .filter(Embedding.speaker_id == speaker_id)
+#               .all()
+#         )
+
+#     if not refs:
+#         raise RuntimeError(f"No embeddings for speaker_id={speaker_id}")
+
+#     ref_vecs = np.vstack([row[0] for row in refs])        # shape [N,192]
+
+#     # ---------- 3. cosine score ----------
+#     # возвращается [[score]], берём [0][0]
+#     score: float = cosine_similarity([probe_vec], ref_vecs).max()
+
+#     # порог можно вынести в settings
+#     matched = score > 0.75
+
+#     return {"score": score, "success": matched}
 
 @celery_app.task(name="voiceid.extract")
 def extract_task(user: str, speaker_id: str, wav_path: str):
